@@ -3,6 +3,7 @@ package com.careflow.authentication_service.service;
 import com.careflow.authentication_service.dto.request.LoginRequest;
 import com.careflow.authentication_service.dto.response.LoginResponse;
 import com.careflow.authentication_service.entity.User;
+import com.careflow.authentication_service.exception.InvalidCredentialsException;
 import com.careflow.authentication_service.repository.UserRepository;
 import com.careflow.authentication_service.security.JwtService;
 
@@ -33,33 +34,38 @@ public class AuthService {
         this.sessionService = sessionService;
     }
 
+    // Staff Login
     @Transactional
     public LoginResponse login(LoginRequest request) {
 
+        // Find user by email
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new InvalidCredentialsException(
                         "Invalid email or password"
                 ));
 
+        // Verify password
         if (!passwordEncoder.matches(
                 request.password(),
                 user.getPassword())) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidCredentialsException(
                     "Invalid email or password"
             );
         }
 
+        // Check whether the account is enabled
         if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new IllegalArgumentException(
-                    "User account is disabled"
+
+            throw new InvalidCredentialsException(
+                    "Invalid email or password"
             );
         }
 
         // Generate JWT access token
         String accessToken = jwtService.generateToken(user);
 
-        // Extract the exact expiration time from the JWT
+        // Extract exact token expiration time
         LocalDateTime expiresAt = jwtService.extractExpiration(accessToken)
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
@@ -72,6 +78,7 @@ public class AuthService {
                 expiresAt
         );
 
+        // Return login response
         return new LoginResponse(
                 user.getId(),
                 user.getFullName(),

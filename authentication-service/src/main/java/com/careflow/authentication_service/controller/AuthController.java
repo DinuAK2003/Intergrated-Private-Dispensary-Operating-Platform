@@ -62,9 +62,23 @@ public class AuthController {
         String authorizationHeader =
                 request.getHeader("Authorization");
 
-        String accessToken =
-                authorizationHeader.substring(7);
+        // Validate Authorization header
+        if (authorizationHeader == null
+                || !authorizationHeader.startsWith("Bearer ")
+                || authorizationHeader.substring(7).isBlank()) {
 
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "message",
+                            "A valid Bearer token is required"
+                    ));
+        }
+
+        // Extract access token
+        String accessToken =
+                authorizationHeader.substring(7).trim();
+
+        // Revoke current session
         boolean revoked =
                 sessionService.revokeSession(accessToken);
 
