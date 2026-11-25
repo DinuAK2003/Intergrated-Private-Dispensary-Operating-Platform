@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,12 +18,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter) {
+
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -36,23 +39,16 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
-            // Disable CSRF protection for REST APIs
             .csrf(csrf -> csrf.disable())
-
-            // Disable default login form
             .formLogin(form -> form.disable())
-
-            // Disable HTTP Basic authentication
             .httpBasic(basic -> basic.disable())
 
-            // Return JSON response for unauthorized requests
             .exceptionHandling(exception -> exception
+
+                // 401 - Authentication failure
                 .authenticationEntryPoint((request, response, authException) -> {
 
-                    response.setStatus(
-                        HttpServletResponse.SC_UNAUTHORIZED
-                    );
-
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.setCharacterEncoding("UTF-8");
 
@@ -62,24 +58,32 @@ public class SecurityConfig {
                         + "\"message\":\"Please provide a valid JWT token\"}"
                     );
                 })
+
+                // 403 - Authenticated but insufficient permission
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+
+                    response.getWriter().write(
+                        "{\"status\":403,"
+                        + "\"error\":\"Forbidden\","
+                        + "\"message\":\"You do not have permission to access this resource\"}"
+                    );
+                })
             )
 
-            // Stateless authentication
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // Endpoint authorization
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/auth/register",
-                    "/api/auth/login"
-                ).permitAll()
+                .requestMatchers("/api/auth/login").permitAll()
 
                 .anyRequest().authenticated()
             )
 
-            // Register JWT authentication filter
             .addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class

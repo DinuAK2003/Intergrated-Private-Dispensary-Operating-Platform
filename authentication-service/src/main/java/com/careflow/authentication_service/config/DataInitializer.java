@@ -11,7 +11,8 @@ import org.springframework.context.annotation.Configuration;
 public class DataInitializer {
 
     @Bean
-    CommandLineRunner initializeRoles(RoleRepository roleRepository) {
+    CommandLineRunner initializeRoles(
+            RoleRepository roleRepository) {
 
         return args -> {
 
@@ -34,7 +35,9 @@ public class DataInitializer {
                 }
             }
 
-            System.out.println("CareFlow roles initialized successfully.");
+            System.out.println(
+                    "CareFlow roles initialized successfully."
+            );
         };
     }
 }

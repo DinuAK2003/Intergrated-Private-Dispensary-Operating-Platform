@@ -1,70 +1,39 @@
 package com.careflow.authentication_service.service;
 
 import com.careflow.authentication_service.dto.request.LoginRequest;
-import com.careflow.authentication_service.dto.request.RegisterRequest;
 import com.careflow.authentication_service.dto.response.LoginResponse;
-import com.careflow.authentication_service.dto.response.RegisterResponse;
-import com.careflow.authentication_service.entity.Role;
 import com.careflow.authentication_service.entity.User;
-import com.careflow.authentication_service.repository.RoleRepository;
 import com.careflow.authentication_service.repository.UserRepository;
 import com.careflow.authentication_service.security.JwtService;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SessionService sessionService;
 
     public AuthService(
             UserRepository userRepository,
-            RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService) {
+            JwtService jwtService,
+            SessionService sessionService) {
 
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.sessionService = sessionService;
     }
 
-    public RegisterResponse register(RegisterRequest request, String roleName) {
-
-        if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException(
-                    "Email is already registered"
-            );
-        }
-
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Role not found: " + roleName
-                ));
-
-        User user = User.builder()
-                .fullName(request.fullName())
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .role(role)
-                .enabled(true)
-                .build();
-
-        User savedUser = userRepository.save(user);
-
-        return new RegisterResponse(
-                savedUser.getId(),
-                savedUser.getFullName(),
-                savedUser.getEmail(),
-                savedUser.getRole().getName(),
-                "Registration successful"
-        );
-    }
-
+    @Transactional
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.email())
@@ -87,7 +56,21 @@ public class AuthService {
             );
         }
 
+        // Generate JWT access token
         String accessToken = jwtService.generateToken(user);
+
+        // Extract the exact expiration time from the JWT
+        LocalDateTime expiresAt = jwtService.extractExpiration(accessToken)
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
+
+        // Store only the hashed token in the database
+        sessionService.createSession(
+                user,
+                accessToken,
+                expiresAt
+        );
 
         return new LoginResponse(
                 user.getId(),

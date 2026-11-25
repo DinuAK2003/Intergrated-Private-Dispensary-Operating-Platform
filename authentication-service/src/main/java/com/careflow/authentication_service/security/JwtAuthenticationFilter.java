@@ -2,6 +2,7 @@ package com.careflow.authentication_service.security;
 
 import com.careflow.authentication_service.entity.User;
 import com.careflow.authentication_service.repository.UserRepository;
+import com.careflow.authentication_service.service.SessionService;
 
 import io.jsonwebtoken.JwtException;
 
@@ -24,13 +25,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final SessionService sessionService;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            SessionService sessionService) {
 
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.sessionService = sessionService;
     }
 
     @Override
@@ -53,37 +57,49 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authorizationHeader.substring(7);
 
         try {
+
+            // Extract email from JWT
             String email = jwtService.extractEmail(token);
 
             if (email != null
                     && SecurityContextHolder.getContext()
                     .getAuthentication() == null) {
 
+                // Find user in database
                 User user = userRepository.findByEmail(email)
                         .orElse(null);
 
+                // Verify user account and JWT
                 if (user != null
                         && Boolean.TRUE.equals(user.getEnabled())
                         && jwtService.isTokenValid(token, user)) {
 
-                    String authority =
-                            "ROLE_" + user.getRole().getName();
+                    // Verify active database session
+                    boolean validSession =
+                            sessionService.isSessionValid(token);
 
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    user.getEmail(),
-                                    null,
-                                    Collections.singletonList(
-                                            new SimpleGrantedAuthority(authority)
-                                    )
-                            );
+                    if (validSession) {
 
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(authentication);
+                        String authority =
+                                "ROLE_" + user.getRole().getName();
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        user.getEmail(),
+                                        null,
+                                        Collections.singletonList(
+                                                new SimpleGrantedAuthority(authority)
+                                        )
+                                );
+
+                        SecurityContextHolder.getContext()
+                                .setAuthentication(authentication);
+                    }
                 }
             }
 
         } catch (JwtException | IllegalArgumentException exception) {
+
             SecurityContextHolder.clearContext();
         }
 
