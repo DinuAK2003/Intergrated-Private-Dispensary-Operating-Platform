@@ -35,6 +35,11 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    // True only while waiting for ADMIN approval
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean pendingApproval = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

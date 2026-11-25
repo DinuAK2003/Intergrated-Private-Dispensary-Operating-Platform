@@ -24,6 +24,7 @@ public class SessionService {
         this.userSessionRepository = userSessionRepository;
     }
 
+    // Create a new user session
     @Transactional
     public void createSession(
             User user,
@@ -42,6 +43,7 @@ public class SessionService {
         userSessionRepository.save(session);
     }
 
+    // Validate an existing session
     @Transactional(readOnly = true)
     public boolean isSessionValid(String accessToken) {
 
@@ -59,7 +61,7 @@ public class SessionService {
                 .isPresent();
     }
 
-    // Revoke an active session
+    // Revoke an individual session during logout
     @Transactional
     public boolean revokeSession(String accessToken) {
 
@@ -80,6 +82,15 @@ public class SessionService {
         return true;
     }
 
+    // Revoke all active sessions of a user
+    @Transactional
+    public int revokeAllActiveSessions(Long userId) {
+
+        return userSessionRepository
+                .revokeAllActiveSessionsByUserId(userId);
+    }
+
+    // Generate SHA-256 hash of JWT
     private String hashToken(String token) {
 
         try {
