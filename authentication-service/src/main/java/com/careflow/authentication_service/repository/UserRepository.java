@@ -1,0 +1,22 @@
+
+package com.careflow.authentication_service.repository;
+
+import com.careflow.authentication_service.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+import java.util.List;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByRole_Name(String roleName);
+
+    long countByRole_Name(String roleName);
+
+    List<User> findAllByPendingApprovalTrue();
+}
